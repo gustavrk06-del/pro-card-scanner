@@ -39,10 +39,11 @@ REQUEST_TIMEOUT_MS = 180_000  # timeout pr. kald til Gemini (millisekunder)
 UPLOAD_TYPES = ["jpg", "jpeg", "png", "webp"]
 
 # Valgfrit ekstra prompt-afsnit. Slås til/fra med en afkrydsning på siden (standard: fra = din gennemtestede prompt).
+APP_VERSION = "2026-11-17 c"   # vises nederst på siden, så man kan se hvilken kode der kører online
 PRESERVE_WHITENING = False
 PRESERVE_WHITENING_RULE = """
 
-5. FAITHFUL REPRODUCTION OF REAL WEAR (WHITENING, CHIPS, EDGE DAMAGE): Judge wear only from the flat top-down view in Image 1 and the straight-on close-up photos, never from the visible paper side-edge in angled photos. If white chipping, whitening specks or nicks are clearly visible on a corner or edge in those photos, reproduce them faithfully: same location, similar size and amount, as small irregular white flecks on the border. Do NOT clean up, smooth over or remove real wear, and do NOT invent wear that is not visible in the photos. A clean corner stays 100% clean; a worn corner stays worn."""
+5. FAITHFUL REPRODUCTION OF REAL WEAR (WHITENING, SCRATCHES, DISCOLORATION, EDGE DAMAGE): Judge wear only from the flat top-down view in Image 1 and the straight-on close-up photos, never from the visible paper side-edge in angled photos. If white chipping, whitening specks, nicks, scratches, print lines, dents, stains or discoloration are clearly visible on the card in those photos, reproduce each one faithfully: same location, same shape, similar size and intensity. Tiny white flecks on corners and edges must stay as tiny white flecks. Do NOT clean up, smooth over, retouch or remove real wear, and do NOT invent wear that is not visible in the photos. A clean corner stays 100% clean; a worn corner stays worn."""
 
 EXAMPLES_DIR = Path(__file__).resolve().parent / "examples"
 EXAMPLE_EXTS = (".jpg", ".jpeg", ".png", ".webp")
@@ -683,9 +684,9 @@ bg_choice = st.radio(
     horizontal=True,
 )
 PRESERVE_WHITENING = st.checkbox(
-    "Bevar synlig whitening og kantskader (nyt, eksperimentelt)",
+    "Bevar whitening, ridser og misfarvning (nyt, eksperimentelt)",
     value=False,
-    help=("Slået til forsøger scanneren at gengive hvide skader på kanter og hjørner, som de ser ud på dit foto, "
+    help=("Slået til forsøger scanneren at gengive skader præcis, som de ser ud på dit foto, "
           "i stedet for at rense dem væk. Slået fra bruger scanneren den gennemtestede standardprompt."),
 )
 
@@ -714,3 +715,4 @@ if scan_clicked:
 render_results()
 render_gallery()
 render_html(LEGAL_HTML)
+st.caption(f"Programversion {APP_VERSION}")
