@@ -33,10 +33,16 @@ logger = logging.getLogger("pro_card_scanner")
 
 # ───────────────────────────── Indstillinger ─────────────────────────────
 MAX_SCANS = 5                 # gratis scanninger pr. besøgende (pr. browser-session)
-NORMALIZE_UPLOADS = True      # ret EXIF-rotation og skalér store mobilfotos ned før de sendes til Gemini
-MAX_IMAGE_SIDE = 2560         # længste side (px) efter skalering
+NORMALIZE_UPLOADS = True      # fotos sendes uændret til Gemini, medmindre de skal rettes (EXIF-rotation, enorme filer)
+MAX_IMAGE_SIDE = 4096         # fotos med en længere side skaleres ned (almindelige mobilfotos på op til 12 MP røres ikke)
 REQUEST_TIMEOUT_MS = 180_000  # timeout pr. kald til Gemini (millisekunder)
 UPLOAD_TYPES = ["jpg", "jpeg", "png", "webp"]
+
+# Valgfrit ekstra prompt-afsnit. Slås til/fra med en afkrydsning på siden (standard: fra = din gennemtestede prompt).
+PRESERVE_WHITENING = False
+PRESERVE_WHITENING_RULE = """
+
+5. FAITHFUL REPRODUCTION OF REAL WEAR (WHITENING, CHIPS, EDGE DAMAGE): Judge wear only from the flat top-down view in Image 1 and the straight-on close-up photos, never from the visible paper side-edge in angled photos. If white chipping, whitening specks or nicks are clearly visible on a corner or edge in those photos, reproduce them faithfully: same location, similar size and amount, as small irregular white flecks on the border. Do NOT clean up, smooth over or remove real wear, and do NOT invent wear that is not visible in the photos. A clean corner stays 100% clean; a worn corner stays worn."""
 
 EXAMPLES_DIR = Path(__file__).resolve().parent / "examples"
 EXAMPLE_EXTS = (".jpg", ".jpeg", ".png", ".webp")
@@ -117,7 +123,7 @@ def get_prompt(bg_choice):
     bg_desc = "solid dark neutral gray background (#2B2B2B)" if is_dark else "pure solid white background (#FFFFFF)"
     bg_word = "gray" if is_dark else "white"
 
-    return f"""You are a forensic trading card scanner. Transform the uploaded smartphone photos into a single flat, studio-grade flatbed scanner image centered on a {bg_desc}.
+    prompt = f"""You are a forensic trading card scanner. Transform the uploaded smartphone photos into a single flat, studio-grade flatbed scanner image centered on a {bg_desc}.
 
 STRICT IMAGE ROLES (CRITICAL):
 - IMAGE 1 (PRIMARY MASTER REFERENCE): The ONLY source of truth for border thicknesses (centering), corner shapes, and raw color tones.
@@ -129,6 +135,9 @@ PROCESSING RULES:
 2. CLEAN CORNERS & SILHOUETTE (NO FAKE CORNER WHITENING): Flatten Image 1 into a 2D vertical rectangle (63x88mm aspect ratio), removing the table background completely. Preserve the exact corner shapes of Image 1. If a corner in Image 1 is clean and solid dark-blue or silver, keep the curved edge 100% solid dark-blue or silver all the way to the {bg_word} background—NEVER add white speckles, anti-aliasing specks, or fake corner whitening onto clean rounded corners.
 3. ZERO FAKE EDGE HALO OR WHITENING: Do NOT draw a light outline or white border fringe where the card meets the {bg_word} background. Remove camera glare from glossy borders so clean borders stay solid dark blue or silver.
 4. RAW COLOR & HOLO FIDELITY: Preserve the exact holo pattern, muted tones, and raw color temperature of Image 1 without boosting saturation or contrast."""
+    if PRESERVE_WHITENING:
+        prompt += PRESERVE_WHITENING_RULE
+    return prompt
 
 def call_gemini(client, bg_choice, labeled_files):
     valid_items = [(label, Image.open(f)) for label, f in labeled_files if f is not None]
@@ -165,11 +174,19 @@ def call_gemini(client, bg_choice, labeled_files):
 
 # ───────────────────────────── Hjælpefunktioner ─────────────────────────────
 def prepare_upload(uploaded_file):
-    """Retter EXIF-rotation, konverterer til RGB og skalerer store mobilfotos ned. Returnerer JPEG-bytes eller None."""
+    """Giver Gemini fotoet præcis, som det er uploadet, medmindre det skal rettes (EXIF-rotation, enormt stort eller
+    usædvanligt farveformat). Returnerer fotoets bytes, eller None hvis filen ikke kan læses som billede."""
     raw = uploaded_file.getvalue()
     if not NORMALIZE_UPLOADS:
         return raw
     try:
+        with Image.open(io.BytesIO(raw)) as probe:
+            probe.load()   # afslører ødelagte filer med det samme
+            needs_rotation = probe.getexif().get(0x0112, 1) not in (0, 1)
+            too_big = max(probe.size) > MAX_IMAGE_SIDE
+            plain_mode = probe.mode in ("RGB", "RGBA")
+        if plain_mode and not needs_rotation and not too_big:
+            return raw
         img = ImageOps.exif_transpose(Image.open(io.BytesIO(raw))).convert("RGB")
         if max(img.size) > MAX_IMAGE_SIDE:
             img.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE), Image.Resampling.LANCZOS)
@@ -664,6 +681,12 @@ bg_choice = st.radio(
     "Vælg scanner-baggrund:",
     ["Mørkegrå (#2B2B2B) - Bedst til at vise whitening og skader", "Kridhvid (#FFFFFF) - Klassisk scanner"],
     horizontal=True,
+)
+PRESERVE_WHITENING = st.checkbox(
+    "Bevar synlig whitening og kantskader (nyt, eksperimentelt)",
+    value=False,
+    help=("Slået til forsøger scanneren at gengive hvide skader på kanter og hjørner, som de ser ud på dit foto, "
+          "i stedet for at rense dem væk. Slået fra bruger scanneren den gennemtestede standardprompt."),
 )
 
 scans_left = MAX_SCANS - st.session_state.scans_used
