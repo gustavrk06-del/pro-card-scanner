@@ -1,0 +1,7 @@
+# Pakker til Streamlit Community Cloud. Filen skal ligge i roden af dit GitHub-repo.
+streamlit>=1.40
+# Bevidst låst til version 2.x: google-genai 3 (udkom 6. nov. 2026) ændrer standardindstillinger,
+# bl.a. API-versionen v1beta -> v1, og er ikke testet sammen med din prototype.
+google-genai>=2.0,<3
+pillow>=10.0
+requests>=2.31
