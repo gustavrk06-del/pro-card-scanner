@@ -1,0 +1,13 @@
+# Gem som: .streamlit/config.toml (mappen .streamlit ligger i roden af dit repo, ved siden af app.py)
+
+[theme]
+base = "light"
+primaryColor = "#2B2B2B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F1F2F4"
+textColor = "#1F2328"
+font = "sans serif"
+
+[server]
+# Maks. størrelse pr. uploadet foto i MB (standard er 200). Beskytter appens hukommelse.
+maxUploadSize = 25
