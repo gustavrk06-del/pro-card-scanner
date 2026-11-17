@@ -38,9 +38,8 @@ MAX_IMAGE_SIDE = 4096         # fotos med en længere side skaleres ned (alminde
 REQUEST_TIMEOUT_MS = 180_000  # timeout pr. kald til Gemini (millisekunder)
 UPLOAD_TYPES = ["jpg", "jpeg", "png", "webp"]
 
-# Valgfrit ekstra prompt-afsnit. Slås til/fra med en afkrydsning på siden (standard: fra = din gennemtestede prompt).
-APP_VERSION = "2026-11-17 c"   # vises nederst på siden, så man kan se hvilken kode der kører online
-PRESERVE_WHITENING = False
+# Ekstra prompt-afsnit (regel 5), der altid sendes med efter dine fire gennemtestede regler: kortet skal gengives 1:1.
+APP_VERSION = "2026-11-17 d"   # vises nederst på siden, så man kan se hvilken kode der kører online
 PRESERVE_WHITENING_RULE = """
 
 5. FAITHFUL REPRODUCTION OF REAL WEAR (WHITENING, SCRATCHES, DISCOLORATION, EDGE DAMAGE): Judge wear only from the flat top-down view in Image 1 and the straight-on close-up photos, never from the visible paper side-edge in angled photos. If white chipping, whitening specks, nicks, scratches, print lines, dents, stains or discoloration are clearly visible on the card in those photos, reproduce each one faithfully: same location, same shape, similar size and intensity. Tiny white flecks on corners and edges must stay as tiny white flecks. Do NOT clean up, smooth over, retouch or remove real wear, and do NOT invent wear that is not visible in the photos. A clean corner stays 100% clean; a worn corner stays worn."""
@@ -136,9 +135,7 @@ PROCESSING RULES:
 2. CLEAN CORNERS & SILHOUETTE (NO FAKE CORNER WHITENING): Flatten Image 1 into a 2D vertical rectangle (63x88mm aspect ratio), removing the table background completely. Preserve the exact corner shapes of Image 1. If a corner in Image 1 is clean and solid dark-blue or silver, keep the curved edge 100% solid dark-blue or silver all the way to the {bg_word} background—NEVER add white speckles, anti-aliasing specks, or fake corner whitening onto clean rounded corners.
 3. ZERO FAKE EDGE HALO OR WHITENING: Do NOT draw a light outline or white border fringe where the card meets the {bg_word} background. Remove camera glare from glossy borders so clean borders stay solid dark blue or silver.
 4. RAW COLOR & HOLO FIDELITY: Preserve the exact holo pattern, muted tones, and raw color temperature of Image 1 without boosting saturation or contrast."""
-    if PRESERVE_WHITENING:
-        prompt += PRESERVE_WHITENING_RULE
-    return prompt
+    return prompt + PRESERVE_WHITENING_RULE
 
 def call_gemini(client, bg_choice, labeled_files):
     valid_items = [(label, Image.open(f)) for label, f in labeled_files if f is not None]
@@ -683,13 +680,6 @@ bg_choice = st.radio(
     ["Mørkegrå (#2B2B2B) - Bedst til at vise whitening og skader", "Kridhvid (#FFFFFF) - Klassisk scanner"],
     horizontal=True,
 )
-PRESERVE_WHITENING = st.checkbox(
-    "Bevar whitening, ridser og misfarvning (nyt, eksperimentelt)",
-    value=False,
-    help=("Slået til forsøger scanneren at gengive skader præcis, som de ser ud på dit foto, "
-          "i stedet for at rense dem væk. Slået fra bruger scanneren den gennemtestede standardprompt."),
-)
-
 scans_left = MAX_SCANS - st.session_state.scans_used
 scan_clicked = st.button("🚀 Scan Kort (For- og Bagside)", type="primary", key="scan_btn",
                          disabled=(not GEMINI_API_KEY) or scans_left <= 0)
